@@ -1,16 +1,26 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import pandas as pd
 import joblib
 from datetime import datetime, timezone
+import zoneinfo
 import json
 import urllib.request
 import urllib.error
 
 app = FastAPI(
     title="Traffic Incident Command & Severity Advisory API",
-    description="Operational Decision-Support System for Traffic Operations Centers (TOC)",
+    description="Operational Decision-Support System for Traffic Operations Centers (TOC). Predicts traffic disruption severity levels (1 to 4) using a Random Forest classifier, and translates severity into standard DOT incident management clearance protocols.",
     version="1.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 model = joblib.load("final_severity_model.pkl")
@@ -19,11 +29,11 @@ fill_values = joblib.load("fill_values.pkl")
 
 
 class IncidentReport(BaseModel):
-    temperature: float = Field(64.0, description="Ambient Temperature in Fahrenheit")
-    humidity: float = Field(68.0, description="Humidity Percentage (0-100)")
-    visibility: float = Field(10.0, description="Visibility in Miles")
-    wind_speed: float = Field(7.0, description="Wind Speed in MPH")
-    precipitation: float = Field(0.0, description="Precipitation in Inches")
+    temperature: float | None = Field(default=None, ge=-80.0, le=140.0, description="Ambient Temperature in Fahrenheit (-80 to 140)")
+    humidity: float | None = Field(default=None, ge=1.0, le=100.0, description="Humidity Percentage (1 to 100)")
+    visibility: float | None = Field(default=None, ge=0.0, le=50.0, description="Visibility in Miles (0 to 50)")
+    wind_speed: float | None = Field(default=None, ge=0.0, le=150.0, description="Wind Speed in MPH (0 to 150)")
+    precipitation: float | None = Field(default=None, ge=0.0, le=15.0, description="Precipitation in Inches (0 to 15)")
     crossing: bool = Field(False, description="Accident at Pedestrian Crossing")
     junction: bool = Field(False, description="Accident at Highway Junction/Interchange")
     traffic_signal: bool = Field(False, description="Accident at Traffic Signal")
@@ -50,7 +60,17 @@ def health_check():
 
 @app.post("/predict")
 def generate_incident_advisory(incident: IncidentReport):
+    """
+    Predict traffic incident disruption severity and return operational advisory protocols.
 
+    NOTE ON ARCHITECTURE & METHODOLOGY:
+    - The predicted severity level (1, 2, 3, or 4) and class confidence distribution are generated
+      directly by the trained Random Forest classifier (`final_severity_model.pkl`).
+    - The estimated clearance time windows, dispatch priorities, and recommended actions
+      are deterministic DOT Standard Operating Procedure (SOP) policy mappings configured
+      for each severity tier. They are NOT independent statistical/ML regression outputs.
+    - Missing environmental metrics are imputed using precomputed dataset medians (`fill_values.pkl`).
+    """
     # Step A: Convert incoming dispatcher data to DataFrame
     raw_data = pd.DataFrame([{
         "Temperature(F)": incident.temperature,
@@ -171,8 +191,8 @@ def auto_populate_incident_data(query: LocationQuery):
     Given (latitude, longitude, timestamp), automatically retrieves:
     - 5 Weather numerical metrics (Open-Meteo API in Imperial units)
     - Categorical Weather Condition (mapped from WMO code)
-    - Sunrise/Sunset status (calculated from daily solar times)
-    - Month and Hour (calculated from timestamp)
+    - Sunrise/Sunset status (calculated from daily solar times matching the incident date)
+    - Month and Hour (calculated from timestamp in coordinates' local timezone)
     - Infrastructure flags (defaults awaiting operator confirmation)
     """
     if query.timestamp:
@@ -182,9 +202,6 @@ def auto_populate_incident_data(query: LocationQuery):
             dt = datetime.now(timezone.utc)
     else:
         dt = datetime.now(timezone.utc)
-
-    month = dt.month
-    hour = dt.hour
 
     url = (
         f"https://api.open-meteo.com/v1/forecast?"
@@ -206,11 +223,30 @@ def auto_populate_incident_data(query: LocationQuery):
     except Exception:
         api_status = "offline"
 
+    # Resolve local timezone and local timestamp
+    local_tz = None
+    if weather_data and "timezone" in weather_data:
+        try:
+            local_tz = zoneinfo.ZoneInfo(weather_data["timezone"])
+        except Exception:
+            local_tz = None
+
+    if local_tz is None:
+        local_tz = dt.tzinfo if dt.tzinfo is not None else timezone.utc
+
+    if dt.tzinfo is not None:
+        local_dt = dt.astimezone(local_tz)
+    else:
+        local_dt = dt.replace(tzinfo=local_tz)
+
+    month = local_dt.month
+    hour = local_dt.hour
+
     if weather_data and "hourly" in weather_data:
         hourly = weather_data["hourly"]
         times = hourly.get("time", [])
 
-        target_prefix = dt.strftime("%Y-%m-%dT%H:00")
+        target_prefix = local_dt.strftime("%Y-%m-%dT%H:00")
         target_idx = -1
         for idx, t in enumerate(times):
             if t.startswith(target_prefix):
@@ -220,33 +256,55 @@ def auto_populate_incident_data(query: LocationQuery):
         if target_idx == -1 and len(times) > 0:
             target_idx = len(times) - 1
 
-        temp = float(hourly["temperature_2m"][target_idx]) if hourly["temperature_2m"][target_idx] is not None else fill_values.get("Temperature(F)", 64.0)
-        humidity = float(hourly["relative_humidity_2m"][target_idx]) if hourly["relative_humidity_2m"][target_idx] is not None else fill_values.get("Humidity(%)", 68.0)
+        def _get_metric(key: str, fallback_key: str, default_val: float) -> float:
+            arr = hourly.get(key, [])
+            if 0 <= target_idx < len(arr) and arr[target_idx] is not None:
+                return float(arr[target_idx])
+            return float(fill_values.get(fallback_key, default_val))
 
-        raw_vis = hourly.get("visibility", [None])[target_idx]
-        if raw_vis is not None:
-            vis = round(min(float(raw_vis) / 1609.34, 10.0), 1)
+        temp = _get_metric("temperature_2m", "Temperature(F)", 64.0)
+        humidity = _get_metric("relative_humidity_2m", "Humidity(%)", 68.0)
+
+        raw_vis_arr = hourly.get("visibility", [])
+        if 0 <= target_idx < len(raw_vis_arr) and raw_vis_arr[target_idx] is not None:
+            vis = round(min(float(raw_vis_arr[target_idx]) / 1609.34, 10.0), 1)
         else:
-            vis = fill_values.get("Visibility(mi)", 10.0)
+            vis = float(fill_values.get("Visibility(mi)", 10.0))
 
-        wind = float(hourly["wind_speed_10m"][target_idx]) if hourly["wind_speed_10m"][target_idx] is not None else fill_values.get("Wind_Speed(mph)", 7.0)
-        precip = float(hourly["precipitation"][target_idx]) if hourly["precipitation"][target_idx] is not None else fill_values.get("Precipitation(in)", 0.0)
+        wind = _get_metric("wind_speed_10m", "Wind_Speed(mph)", 7.0)
+        precip = _get_metric("precipitation", "Precipitation(in)", 0.0)
 
-        wmo_code = hourly["weather_code"][target_idx] if hourly["weather_code"][target_idx] is not None else 1
+        codes_arr = hourly.get("weather_code", [])
+        wmo_code = codes_arr[target_idx] if 0 <= target_idx < len(codes_arr) and codes_arr[target_idx] is not None else 1
         weather_cond = WMO_CODE_MAP.get(wmo_code, "Fair")
 
         sunrise_sunset = "Day"
+        solar_source = "Calculated (Daily Solar Position)"
         daily = weather_data.get("daily", {})
-        if "sunrise" in daily and "sunset" in daily and len(daily["sunrise"]) > 0:
-            sunrise_str = daily["sunrise"][0]
-            sunset_str = daily["sunset"][0]
-            current_iso = dt.strftime("%Y-%m-%dT%H:%M")
-            if current_iso < sunrise_str or current_iso > sunset_str:
-                sunrise_sunset = "Night"
+        daily_times = daily.get("time", [])
+        daily_sunrises = daily.get("sunrise", [])
+        daily_sunsets = daily.get("sunset", [])
+
+        target_date = local_dt.strftime("%Y-%m-%d")
+        day_idx = -1
+        if target_date in daily_times:
+            day_idx = daily_times.index(target_date)
+
+        if day_idx != -1 and day_idx < len(daily_sunrises) and day_idx < len(daily_sunsets):
+            sunrise_str = daily_sunrises[day_idx]
+            sunset_str = daily_sunsets[day_idx]
+            if sunrise_str and sunset_str:
+                current_iso = local_dt.strftime("%Y-%m-%dT%H:%M")
+                if sunrise_str <= current_iso <= sunset_str:
+                    sunrise_sunset = "Day"
+                else:
+                    sunrise_sunset = "Night"
             else:
-                sunrise_sunset = "Day"
+                sunrise_sunset = "Day" if 6 <= hour < 18 else "Night"
+                solar_source = "Calculated (Clock Hour Fallback - Missing Daily Solar Time)"
         else:
-            sunrise_sunset = "Day" if 6 <= hour <= 18 else "Night"
+            sunrise_sunset = "Day" if 6 <= hour < 18 else "Night"
+            solar_source = "Calculated (Clock Hour Fallback - Date Outside Solar Window)"
 
         source_tag = "Open-Meteo Weather API"
     else:
@@ -256,8 +314,9 @@ def auto_populate_incident_data(query: LocationQuery):
         wind = fill_values.get("Wind_Speed(mph)", 7.0)
         precip = fill_values.get("Precipitation(in)", 0.0)
         weather_cond = "Fair"
-        sunrise_sunset = "Day" if 6 <= hour <= 18 else "Night"
+        sunrise_sunset = "Day" if 6 <= hour < 18 else "Night"
         source_tag = "Fallback (System Training Median)"
+        solar_source = "Calculated (Clock Hour Fallback - Offline)"
 
     populated_payload = {
         "temperature": temp,
@@ -276,11 +335,12 @@ def auto_populate_incident_data(query: LocationQuery):
 
     provenance_metadata = {
         "coordinates": {"latitude": query.latitude, "longitude": query.longitude},
-        "resolved_timestamp": dt.isoformat(),
+        "resolved_timestamp": local_dt.isoformat(),
+        "resolved_timezone": str(local_tz),
         "sources": {
             "environmental_metrics": source_tag,
             "weather_condition": f"{source_tag} (Mapped via WMO)",
-            "solar_phase": "Calculated (Daily Solar Position)" if weather_data else "Calculated (Clock Hour)",
+            "solar_phase": solar_source,
             "time_metrics": "Calculated (Incident Timestamp)",
             "road_infrastructure": "Default (Operator Review Required)"
         }
