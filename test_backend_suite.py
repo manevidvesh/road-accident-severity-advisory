@@ -94,20 +94,20 @@ results["Test 3: Missing/Offline Solar Fallback"] = "PASSED" if t3_pass else "FA
 # TEST 4: Numerical input validation boundaries
 print("\n[TEST 4] Numerical input validation boundaries...")
 invalid_payloads = [
-    ({"humidity": -10.0}, "humidity < 1.0"),
-    ({"humidity": 150.0}, "humidity > 100.0"),
-    ({"temperature": -100.0}, "temperature < -80.0"),
-    ({"temperature": 160.0}, "temperature > 140.0"),
-    ({"visibility": -2.0}, "visibility < 0.0"),
-    ({"visibility": 60.0}, "visibility > 50.0"),
-    ({"wind_speed": -5.0}, "wind_speed < 0.0"),
-    ({"wind_speed": 200.0}, "wind_speed > 150.0"),
-    ({"precipitation": -1.0}, "precipitation < 0.0"),
-    ({"precipitation": 25.0}, "precipitation > 15.0"),
-    ({"month": 0}, "month < 1"),
-    ({"month": 13}, "month > 12"),
-    ({"hour": -1}, "hour < 0"),
-    ({"hour": 24}, "hour > 23"),
+    ({"month": 6, "hour": 14, "humidity": -10.0}, "humidity < 1.0"),
+    ({"month": 6, "hour": 14, "humidity": 150.0}, "humidity > 100.0"),
+    ({"month": 6, "hour": 14, "temperature": -100.0}, "temperature < -80.0"),
+    ({"month": 6, "hour": 14, "temperature": 160.0}, "temperature > 140.0"),
+    ({"month": 6, "hour": 14, "visibility": -2.0}, "visibility < 0.0"),
+    ({"month": 6, "hour": 14, "visibility": 60.0}, "visibility > 50.0"),
+    ({"month": 6, "hour": 14, "wind_speed": -5.0}, "wind_speed < 0.0"),
+    ({"month": 6, "hour": 14, "wind_speed": 200.0}, "wind_speed > 150.0"),
+    ({"month": 6, "hour": 14, "precipitation": -1.0}, "precipitation < 0.0"),
+    ({"month": 6, "hour": 14, "precipitation": 25.0}, "precipitation > 15.0"),
+    ({"month": 0, "hour": 14}, "month < 1"),
+    ({"month": 13, "hour": 14}, "month > 12"),
+    ({"month": 6, "hour": -1}, "hour < 0"),
+    ({"month": 6, "hour": 24}, "hour > 23"),
 ]
 
 all_rejected = True
@@ -133,10 +133,13 @@ print(f"  Extreme but valid physical values accepted with HTTP 200: {valid_accep
 t4_pass = all_rejected and valid_accepted
 results["Test 4: Input Validation & Boundary Constraints"] = "PASSED" if t4_pass else "FAILED"
 
-# TEST 5: Omitted fields and explicit null values (median imputation)
+# TEST 5: Omitted environmental fields and explicit null values (median imputation)
 print("\n[TEST 5] Omitted environmental fields and explicit null values...")
-res_empty = client.post("/predict", json={})
+res_empty_rejected = client.post("/predict", json={})
+res_omitted_env = client.post("/predict", json={"month": 6, "hour": 14})
 res_nulls = client.post("/predict", json={
+    "month": 6,
+    "hour": 14,
     "temperature": None,
     "humidity": None,
     "visibility": None,
@@ -145,20 +148,24 @@ res_nulls = client.post("/predict", json={
 })
 
 t5_pass = (
-    res_empty.status_code == 200 and
+    res_empty_rejected.status_code == 422 and
+    res_omitted_env.status_code == 200 and
     res_nulls.status_code == 200 and
-    res_empty.json()["predicted_severity_level"] in [1, 2, 3, 4] and
+    res_omitted_env.json()["predicted_severity_level"] in [1, 2, 3, 4] and
     res_nulls.json()["predicted_severity_level"] in [1, 2, 3, 4] and
-    res_empty.json() == res_nulls.json()
+    res_omitted_env.json() == res_nulls.json()
 )
-print(f"  Empty payload status: {res_empty.status_code}, Severity: {res_empty.json().get('predicted_severity_level')}")
-print(f"  Explicit nulls status: {res_nulls.status_code}, Severity: {res_nulls.json().get('predicted_severity_level')}")
-print(f"  Empty and null-filled outputs match identically: {res_empty.json() == res_nulls.json()}")
+print(f"  Empty payload status (expected 422): {res_empty_rejected.status_code}")
+print(f"  Omitted environmental fields status (expected 200): {res_omitted_env.status_code}, Severity: {res_omitted_env.json().get('predicted_severity_level')}")
+print(f"  Explicit nulls status (expected 200): {res_nulls.status_code}, Severity: {res_nulls.json().get('predicted_severity_level')}")
+print(f"  Omitted and null-filled outputs match identically: {res_omitted_env.json() == res_nulls.json()}")
 results["Test 5: Omitted Fields & Explicit Null Imputation"] = "PASSED" if t5_pass else "FAILED"
 
 # TEST 6: Unknown weather condition handling
 print("\n[TEST 6] Unknown weather categories (reindexing resilience)...")
 res_unknown = client.post("/predict", json={
+    "month": 6,
+    "hour": 14,
     "weather_condition": "AlienSuperstorm",
     "sunrise_sunset": "TwilightZone"
 })

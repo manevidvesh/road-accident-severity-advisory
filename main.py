@@ -27,20 +27,33 @@ model = joblib.load("final_severity_model.pkl")
 columns = joblib.load("model_columns.pkl")
 fill_values = joblib.load("fill_values.pkl")
 
+# Extract known weather categories from training columns, plus the dropped reference category ('Blowing Dust')
+known_weather_conditions = {
+    col.replace("Weather_Condition_", "") for col in columns if col.startswith("Weather_Condition_")
+}
+known_weather_conditions.add("Blowing Dust")
+
 
 class IncidentReport(BaseModel):
-    temperature: float | None = Field(default=None, ge=-80.0, le=140.0, description="Ambient Temperature in Fahrenheit (-80 to 140)")
-    humidity: float | None = Field(default=None, ge=1.0, le=100.0, description="Humidity Percentage (1 to 100)")
-    visibility: float | None = Field(default=None, ge=0.0, le=50.0, description="Visibility in Miles (0 to 50)")
-    wind_speed: float | None = Field(default=None, ge=0.0, le=150.0, description="Wind Speed in MPH (0 to 150)")
-    precipitation: float | None = Field(default=None, ge=0.0, le=15.0, description="Precipitation in Inches (0 to 15)")
-    crossing: bool = Field(False, description="Accident at Pedestrian Crossing")
-    junction: bool = Field(False, description="Accident at Highway Junction/Interchange")
-    traffic_signal: bool = Field(False, description="Accident at Traffic Signal")
-    month: int = Field(11, ge=1, le=12, description="Month of incident (1-12)")
-    hour: int = Field(18, ge=0, le=23, description="Hour of incident (0-23)")
-    weather_condition: str = Field("Fair", description="Observed Weather (e.g. Fair, Rain, Fog)")
-    sunrise_sunset: str = Field("Night", description="Time of day: Day or Night")
+    # Mandatory temporal context: an incident cannot occur without an observed time
+    month: int = Field(..., ge=1, le=12, description="Month of incident (1-12, required)")
+    hour: int = Field(..., ge=0, le=23, description="Hour of incident (0-23 in local solar time, required)")
+
+    # Optional environmental telemetry: missing values default to None and are imputed with dataset medians
+    temperature: float | None = Field(default=None, ge=-80.0, le=140.0, description="Ambient Temperature in Fahrenheit (-80 to 140°F, based on observed US extremes and sensor outlier filtering)")
+    humidity: float | None = Field(default=None, ge=1.0, le=100.0, description="Relative Humidity Percentage (1 to 100%)")
+    visibility: float | None = Field(default=None, ge=0.0, le=50.0, description="Surface Visibility in Statute Miles (0 to 50 mi, covers 99.98% of US METAR reports)")
+    wind_speed: float | None = Field(default=None, ge=0.0, le=150.0, description="Sustained Wind Speed in MPH (0 to 150 mph)")
+    precipitation: float | None = Field(default=None, ge=0.0, le=15.0, description="Precipitation accumulation in Inches (0 to 15 in)")
+
+    # Infrastructure indicators: default to False indicating absence unless confirmed by dispatcher
+    crossing: bool = Field(False, description="Accident at Pedestrian Crossing (default: False)")
+    junction: bool = Field(False, description="Accident at Highway Junction/Interchange (default: False)")
+    traffic_signal: bool = Field(False, description="Accident at Traffic Signal (default: False)")
+
+    # Categorical context: unrecognized values are mapped to Unknown during preprocessing
+    weather_condition: str = Field("Fair", description="Observed Weather (e.g. Fair, Rain, Snow, Blowing Dust; unrecognized categories mapped to Unknown)")
+    sunrise_sunset: str = Field("Day", description="Solar Phase: Day or Night (unrecognized values mapped to Unknown)")
 
 
 @app.get("/")
@@ -71,6 +84,11 @@ def generate_incident_advisory(incident: IncidentReport):
       for each severity tier. They are NOT independent statistical/ML regression outputs.
     - Missing environmental metrics are imputed using precomputed dataset medians (`fill_values.pkl`).
     """
+    # Map genuinely unrecognized categories to "Unknown", while preserving known categories
+    # Note: 'Blowing Dust' is preserved as the training reference category (represented by all weather dummies = 0)
+    weather = incident.weather_condition if incident.weather_condition in known_weather_conditions else "Unknown"
+    solar = incident.sunrise_sunset if incident.sunrise_sunset in ["Day", "Night", "Unknown"] else "Unknown"
+
     # Step A: Convert incoming dispatcher data to DataFrame
     raw_data = pd.DataFrame([{
         "Temperature(F)": incident.temperature,
@@ -83,20 +101,16 @@ def generate_incident_advisory(incident: IncidentReport):
         "Traffic_Signal": incident.traffic_signal,
         "Month": incident.month,
         "Hour": incident.hour,
-        "Weather_Condition": incident.weather_condition,
-        "Sunrise_Sunset": incident.sunrise_sunset
+        "Weather_Condition": weather,
+        "Sunrise_Sunset": solar
     }])
 
-    
+    # Step B: Impute missing environmental values using training dataset medians
     for col, median_val in fill_values.items():
         if col in raw_data.columns:
             raw_data[col] = raw_data[col].fillna(median_val)
 
-
-    raw_data["Weather_Condition"] = raw_data["Weather_Condition"].fillna("Unknown")
-    raw_data["Sunrise_Sunset"] = raw_data["Sunrise_Sunset"].fillna("Unknown")
-
-
+    # Step C: One-hot encode categorical features and align with 149 model columns
     encoded_data = pd.get_dummies(raw_data, columns=["Weather_Condition", "Sunrise_Sunset"])
     ready_features = encoded_data.reindex(columns=columns, fill_value=0)
 
