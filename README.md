@@ -33,7 +33,8 @@ pip install fastapi uvicorn pandas scikit-learn joblib
 ```bash
 python -m uvicorn main:app --reload
 ```
-* **Local Root:** `http://127.0.0.1:8000`
+* **Landing Page:** `http://127.0.0.1:8000/`
+* **Assessment Workspace:** `http://127.0.0.1:8000/workspace`
 * **Swagger Documentation:** `http://127.0.0.1:8000/docs`
 * **Health Check:** `http://127.0.0.1:8000/health`
 

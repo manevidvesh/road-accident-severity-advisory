@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Incident Severity Advisory</title>
+  <meta name="description" content="Assisted road accident assessment combining environmental telemetry and machine learning to estimate traffic-impact severity.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap-wide top-inner">
+    <span class="brand">Incident severity advisory</span>
+    <nav>
+      <ul class="nav-links">
+        <li><a href="#inputs">Inputs</a></li>
+        <li><a href="workspace.html" class="link" style="font-weight: 600;">Start assessment →</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- Hero Section: What this is about (Centered, No images) -->
+  <section class="landing-hero">
+    <div class="wrap-wide">
+      <div class="landing-hero-tag">Operational Decision Support</div>
+      <h1 class="landing-hero-title">Understand the conditions.<br>Assess the impact.</h1>
+      <p class="landing-hero-sub">
+        An assisted road accident assessment system that combines environmental information, road conditions and machine learning to estimate traffic-impact severity.
+      </p>
+
+      <div class="landing-hero-actions">
+        <a href="workspace.html" class="btn primary">Start assessment</a>
+      </div>
+
+      <!-- 3-part context overview -->
+      <div class="hero-context-bar">
+        <div class="context-bar-item">
+          <span class="context-bar-num">01 / INCIDENT CONTEXT</span>
+          <span class="context-bar-title">Spatial & Temporal</span>
+          <span class="context-bar-desc">Coordinates, calendar month, and local solar hour.</span>
+        </div>
+        <div class="context-bar-item">
+          <span class="context-bar-num">02 / TELEMETRY</span>
+          <span class="context-bar-title">Atmospheric Ingestion</span>
+          <span class="context-bar-desc">Automated weather retrieval for the incident timestamp.</span>
+        </div>
+        <div class="context-bar-item">
+          <span class="context-bar-num">03 / GEOMETRY</span>
+          <span class="context-bar-title">Road Infrastructure</span>
+          <span class="context-bar-desc">Operator confirmation of crossings, junctions, and signals.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: Inputs -->
+  <section id="inputs" class="landing-section">
+    <div class="wrap-wide">
+      <div class="landing-section-header">
+        <span class="landing-section-tag">System Inputs</span>
+        <h2 class="landing-section-title">What goes into an assessment</h2>
+      </div>
+
+      <div class="grid-3">
+        <div class="input-group-card">
+          <h3>Incident Context</h3>
+          <ul class="input-group-list">
+            <li><span>Location</span> <span class="val">Address / GPS</span></li>
+            <li><span>Month</span> <span class="val">1 – 12</span></li>
+            <li><span>Solar Hour</span> <span class="val">00:00 – 23:00</span></li>
+          </ul>
+        </div>
+
+        <div class="input-group-card">
+          <h3>Environmental Conditions</h3>
+          <ul class="input-group-list">
+            <li><span>Temperature</span> <span class="val">°F</span></li>
+            <li><span>Humidity</span> <span class="val">%</span></li>
+            <li><span>Visibility</span> <span class="val">Statute miles</span></li>
+            <li><span>Wind speed</span> <span class="val">mph</span></li>
+            <li><span>Precipitation</span> <span class="val">Inches</span></li>
+            <li><span>Weather / Solar</span> <span class="val">WMO / Day-Night</span></li>
+          </ul>
+        </div>
+
+        <div class="input-group-card">
+          <h3>Road Infrastructure</h3>
+          <ul class="input-group-list">
+            <li><span>Pedestrian crossing</span> <span class="val">Yes / No</span></li>
+            <li><span>Highway junction</span> <span class="val">Yes / No</span></li>
+            <li><span>Traffic signal</span> <span class="val">Yes / No</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap-wide foot">
+  <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 10px;">
+    <span>Incident Severity Advisory</span>
+    <div style="display: flex; gap: 16px;">
+      <a href="#inputs">Inputs</a>
+      <a href="workspace.html">Workspace</a>
+      <a href="https://github.com/manevidvesh/road-accident-severity-advisory" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </div>
+  </div>
+  Location search © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>
+  (Nominatim). Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo.com</a>.
+</footer>
+
+</body>
+</html>

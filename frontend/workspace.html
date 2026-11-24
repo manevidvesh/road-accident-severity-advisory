@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assessment Workspace — Incident Severity Advisory</title>
+  <meta name="description" content="Advisory traffic-impact assessment for road incidents.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-inner">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <a href="index.html" class="link-back" style="color: var(--muted); text-decoration: none; font-size: 0.875rem;">← Overview</a>
+      <span class="brand">Incident severity advisory</span>
+    </div>
+    <ol class="steps" aria-label="Progress">
+      <li id="step-incident" aria-current="step">Incident</li>
+      <li id="step-review">Review</li>
+      <li id="step-result">Result</li>
+    </ol>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 1 · Identify the incident -->
+  <section id="panel-incident" aria-labelledby="h-incident">
+    <h1 id="h-incident" tabindex="-1">Where and when did it happen?</h1>
+
+    <form id="incident-form" novalidate>
+      <div class="field">
+        <label for="place">Location</label>
+        <div class="inline">
+          <input id="place" type="search" autocomplete="off" spellcheck="false"
+                 placeholder="Address, road or place name" aria-describedby="place-help place-error">
+          <button type="button" id="search-btn" class="btn">Search</button>
+        </div>
+        <p id="place-help" class="hint">
+          Or <button type="button" id="geo-btn" class="link">use this device’s location</button>.
+          Only if you are at the scene.
+        </p>
+        <p id="place-status" class="note" role="status" hidden></p>
+        <ul id="place-results" class="results" hidden></ul>
+        <p id="place-error" class="error" role="alert" hidden></p>
+      </div>
+
+      <div id="chosen" class="chosen" hidden>
+        <div>
+          <div class="chosen-label" id="chosen-label"></div>
+          <div class="chosen-coords" id="chosen-coords"></div>
+        </div>
+        <details class="adjust">
+          <summary>Adjust position</summary>
+          <div class="grid-2">
+            <div class="field">
+              <label for="lat">Latitude</label>
+              <input id="lat" type="number" step="any" min="-90" max="90" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label for="lon">Longitude</label>
+              <input id="lon" type="number" step="any" min="-180" max="180" inputmode="decimal">
+            </div>
+          </div>
+          <button type="button" id="apply-coords" class="btn small">Use these coordinates</button>
+          <a id="osm-link" class="small-link" target="_blank" rel="noopener noreferrer">Check on OpenStreetMap</a>
+          <p id="coords-error" class="error" role="alert" hidden></p>
+        </details>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="date">Incident date</label>
+          <input id="date" type="date" aria-describedby="when-help date-error">
+          <p id="date-error" class="error" role="alert" hidden></p>
+        </div>
+        <div class="field">
+          <label for="time">Incident time</label>
+          <input id="time" type="time" aria-describedby="when-help time-error">
+          <p id="time-error" class="error" role="alert" hidden></p>
+        </div>
+      </div>
+      <p id="when-help" class="hint">Local time at the incident location.</p>
+
+      <div class="actions">
+        <button type="submit" id="get-btn" class="btn primary">Get conditions</button>
+      </div>
+
+      <div id="retrieve-msg" class="msg" role="status" hidden></div>
+    </form>
+  </section>
+
+  <!-- 2–5 · Road features, review, run -->
+  <section id="panel-review" aria-labelledby="h-review" hidden>
+    <h1 id="h-review" tabindex="-1">Confirm and review</h1>
+
+    <div class="summary">
+      <div>
+        <div id="sum-place" class="summary-main"></div>
+        <div id="sum-when" class="summary-sub"></div>
+      </div>
+      <button type="button" id="edit-incident" class="link">Change</button>
+    </div>
+
+    <div id="retrieve-banner" class="banner" role="status" hidden></div>
+
+    <h2>Road features</h2>
+    <p class="hint">Answer each from what you can see at the scene.</p>
+
+    <fieldset class="q" data-key="crossing">
+      <legend>Is there a pedestrian crossing?</legend>
+      <div class="seg">
+        <input type="radio" name="crossing" id="crossing-yes" value="yes"><label for="crossing-yes">Yes</label>
+        <input type="radio" name="crossing" id="crossing-no" value="no"><label for="crossing-no">No</label>
+      </div>
+      <p class="error" role="alert" hidden>Choose Yes or No.</p>
+    </fieldset>
+
+    <fieldset class="q" data-key="junction">
+      <legend>Is it at a highway junction?</legend>
+      <div class="seg">
+        <input type="radio" name="junction" id="junction-yes" value="yes"><label for="junction-yes">Yes</label>
+        <input type="radio" name="junction" id="junction-no" value="no"><label for="junction-no">No</label>
+      </div>
+      <p class="error" role="alert" hidden>Choose Yes or No.</p>
+    </fieldset>
+
+    <fieldset class="q" data-key="traffic_signal">
+      <legend>Is there a traffic signal?</legend>
+      <div class="seg">
+        <input type="radio" name="traffic_signal" id="signal-yes" value="yes"><label for="signal-yes">Yes</label>
+        <input type="radio" name="traffic_signal" id="signal-no" value="no"><label for="signal-no">No</label>
+      </div>
+      <p class="error" role="alert" hidden>Choose Yes or No.</p>
+    </fieldset>
+
+    <h2>Conditions at the incident time</h2>
+    <dl id="env-list" class="env"></dl>
+    <p class="hint" id="env-note"></p>
+
+    <details id="advanced" class="advanced">
+      <summary>Advanced manual input</summary>
+      <p class="hint">Only change a value if you have a better source. Edited values are marked as edited.</p>
+      <div id="advanced-fields" class="grid-2"></div>
+    </details>
+
+    <div class="actions">
+      <button type="button" id="run-btn" class="btn primary">Run assessment</button>
+    </div>
+    <div id="run-msg" class="msg" role="status" hidden></div>
+  </section>
+
+  <!-- 6 · Result -->
+  <section id="panel-result" aria-labelledby="h-result" hidden>
+    <h1 id="h-result" tabindex="-1">Assessment</h1>
+
+    <div id="result-hero" class="hero" data-level="">
+      <div class="hero-level" id="res-level" aria-hidden="true"></div>
+      <div>
+        <div class="hero-tier" id="res-tier"></div>
+        <div class="hero-sub">Predicted traffic impact, level <span id="res-level-sr"></span> of 4</div>
+      </div>
+    </div>
+
+    <h2>Model probabilities</h2>
+    <p class="hint">How the model spread its estimate across the four levels. These are not a measure of accuracy.</p>
+    <ul id="res-probs" class="probs"></ul>
+
+    <h2>Standard response for this level</h2>
+    <p class="hint">Fixed rule-based guidance attached to the predicted level. It is not a separate prediction.</p>
+    <dl id="res-sop" class="sop"></dl>
+
+    <p id="res-inputs-note" class="note" hidden></p>
+
+    <p class="limits">
+      Advisory only, not a dispatch decision. The model estimates traffic delay, not injuries or fatalities.
+      It was trained on US accident records (2016–2023) and may be less reliable elsewhere.
+    </p>
+
+    <div class="actions row">
+      <button type="button" id="new-btn" class="btn primary">New incident</button>
+      <button type="button" id="back-review-btn" class="btn">Back to review</button>
+      <a href="index.html" class="btn" style="text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center;">Overview</a>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
+    <a href="index.html">← Back to Overview</a>
+    <a href="https://github.com/manevidvesh/road-accident-severity-advisory" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
+  </div>
+  Location search © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>
+  (Nominatim). Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo.com</a>.
+</footer>
+
+<script src="js/config.js"></script>
+<script src="js/model-options.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

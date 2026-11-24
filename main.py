@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import pandas as pd
@@ -22,6 +25,16 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Mount static asset folders for frontend
+if os.path.exists("frontend"):
+    if os.path.exists("frontend/css"):
+        app.mount("/css", StaticFiles(directory="frontend/css"), name="css")
+    if os.path.exists("frontend/js"):
+        app.mount("/js", StaticFiles(directory="frontend/js"), name="js")
+    if os.path.exists("frontend/assets"):
+        app.mount("/assets", StaticFiles(directory="frontend/assets"), name="assets")
+    app.mount("/frontend", StaticFiles(directory="frontend", html=True), name="frontend")
 
 model = joblib.load("final_severity_model.pkl")
 columns = joblib.load("model_columns.pkl")
@@ -57,12 +70,36 @@ class IncidentReport(BaseModel):
 
 
 @app.get("/")
-def root():
+def root(request: Request):
+    # If requested by a web browser, serve the product landing page
+    if "text/html" in request.headers.get("accept", "") and os.path.exists("frontend/index.html"):
+        return FileResponse("frontend/index.html")
     return {
         "system": "Traffic Incident Advisory System",
         "stakeholder": "Department of Transportation / Traffic Operations Center",
         "documentation": "/docs"
     }
+
+
+@app.get("/workspace")
+def workspace_route():
+    if os.path.exists("frontend/workspace.html"):
+        return FileResponse("frontend/workspace.html")
+    return {"error": "Workspace page not found"}
+
+
+@app.get("/index.html")
+def index_html_route():
+    if os.path.exists("frontend/index.html"):
+        return FileResponse("frontend/index.html")
+    return {"error": "Landing page not found"}
+
+
+@app.get("/workspace.html")
+def workspace_html_route():
+    if os.path.exists("frontend/workspace.html"):
+        return FileResponse("frontend/workspace.html")
+    return {"error": "Workspace page not found"}
 
 
 @app.get("/health")
@@ -208,12 +245,22 @@ def auto_populate_incident_data(query: LocationQuery):
     - Sunrise/Sunset status (calculated from daily solar times matching the incident date)
     - Month and Hour (calculated from timestamp in coordinates' local timezone)
     - Infrastructure flags (defaults awaiting operator confirmation)
+
+    Honesty rules (v1.1):
+    - Weather is only returned if the incident hour is present in the Open-Meteo response
+      (past 7 days up to the API's forecast horizon). Older incidents are NOT given the
+      nearest/latest hour; their values are reported as imputed/unavailable instead.
+    - `field_status` reports, per field, whether the value was "retrieved", "imputed"
+      (replaced by a training-set median) or "unavailable" (categorical -> "Unknown").
     """
     if query.timestamp:
         try:
             dt = datetime.fromisoformat(query.timestamp.replace("Z", "+00:00"))
         except ValueError:
-            dt = datetime.now(timezone.utc)
+            raise HTTPException(
+                status_code=422,
+                detail="timestamp must be an ISO 8601 date-time, e.g. 2026-11-21T14:30:00",
+            )
     else:
         dt = datetime.now(timezone.utc)
 
@@ -227,7 +274,6 @@ def auto_populate_incident_data(query: LocationQuery):
     )
 
     weather_data = None
-    api_status = "live"
 
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "TrafficIncidentAdvisory/1.0"})
@@ -235,7 +281,7 @@ def auto_populate_incident_data(query: LocationQuery):
             if response.status == 200:
                 weather_data = json.loads(response.read().decode("utf-8"))
     except Exception:
-        api_status = "offline"
+        weather_data = None
 
     # Resolve local timezone and local timestamp
     local_tz = None
@@ -256,81 +302,83 @@ def auto_populate_incident_data(query: LocationQuery):
     month = local_dt.month
     hour = local_dt.hour
 
-    if weather_data and "hourly" in weather_data:
-        hourly = weather_data["hourly"]
-        times = hourly.get("time", [])
+    field_status = {}
+    messages = []
 
-        target_prefix = local_dt.strftime("%Y-%m-%dT%H:00")
-        target_idx = -1
-        for idx, t in enumerate(times):
-            if t.startswith(target_prefix):
-                target_idx = idx
-                break
+    # Locate the incident hour. There is deliberately NO fallback to another hour:
+    # using the latest hour for an old incident would silently return the wrong weather.
+    hourly = (weather_data or {}).get("hourly") or {}
+    times = hourly.get("time", [])
+    target_prefix = local_dt.strftime("%Y-%m-%dT%H:00")
+    target_idx = -1
+    for idx, t in enumerate(times):
+        if t.startswith(target_prefix):
+            target_idx = idx
+            break
+    hour_matched = target_idx != -1
 
-        if target_idx == -1 and len(times) > 0:
-            target_idx = len(times) - 1
+    if weather_data is None:
+        messages.append("The weather service could not be reached, so no environmental data was retrieved.")
+    elif not hour_matched:
+        messages.append(
+            "The weather source has no data for the incident hour. It covers roughly the past 7 days "
+            "up to its forecast horizon, so older or far-future incidents cannot be retrieved."
+        )
 
-        def _get_metric(key: str, fallback_key: str, default_val: float) -> float:
-            arr = hourly.get(key, [])
-            if 0 <= target_idx < len(arr) and arr[target_idx] is not None:
-                return float(arr[target_idx])
-            return float(fill_values.get(fallback_key, default_val))
+    def _numeric(field: str, key: str, fallback_key: str, default_val: float, convert=None) -> float:
+        arr = hourly.get(key, [])
+        if hour_matched and 0 <= target_idx < len(arr) and arr[target_idx] is not None:
+            field_status[field] = "retrieved"
+            raw = float(arr[target_idx])
+            return convert(raw) if convert else raw
+        field_status[field] = "imputed"
+        return float(fill_values.get(fallback_key, default_val))
 
-        temp = _get_metric("temperature_2m", "Temperature(F)", 64.0)
-        humidity = _get_metric("relative_humidity_2m", "Humidity(%)", 68.0)
+    temp = _numeric("temperature", "temperature_2m", "Temperature(F)", 64.0)
+    humidity = _numeric("humidity", "relative_humidity_2m", "Humidity(%)", 68.0)
+    vis = _numeric("visibility", "visibility", "Visibility(mi)", 10.0,
+                   convert=lambda m: round(min(m / 1609.34, 10.0), 1))
+    wind = _numeric("wind_speed", "wind_speed_10m", "Wind_Speed(mph)", 7.0)
+    precip = _numeric("precipitation", "precipitation", "Precipitation(in)", 0.0)
 
-        raw_vis_arr = hourly.get("visibility", [])
-        if 0 <= target_idx < len(raw_vis_arr) and raw_vis_arr[target_idx] is not None:
-            vis = round(min(float(raw_vis_arr[target_idx]) / 1609.34, 10.0), 1)
+    # Weather condition: Unknown (not Fair) when it cannot be determined or mapped
+    weather_cond = "Unknown"
+    field_status["weather_condition"] = "unavailable"
+    codes_arr = hourly.get("weather_code", [])
+    if hour_matched and 0 <= target_idx < len(codes_arr) and codes_arr[target_idx] is not None:
+        mapped = WMO_CODE_MAP.get(codes_arr[target_idx])
+        if mapped:
+            weather_cond = mapped
+            field_status["weather_condition"] = "retrieved"
         else:
-            vis = float(fill_values.get("Visibility(mi)", 10.0))
+            messages.append(f"Weather code {codes_arr[target_idx]} has no mapping to a model category; reported as Unknown.")
 
-        wind = _get_metric("wind_speed_10m", "Wind_Speed(mph)", 7.0)
-        precip = _get_metric("precipitation", "Precipitation(in)", 0.0)
-
-        codes_arr = hourly.get("weather_code", [])
-        wmo_code = codes_arr[target_idx] if 0 <= target_idx < len(codes_arr) and codes_arr[target_idx] is not None else 1
-        weather_cond = WMO_CODE_MAP.get(wmo_code, "Fair")
-
-        sunrise_sunset = "Day"
-        solar_source = "Calculated (Daily Solar Position)"
-        daily = weather_data.get("daily", {})
-        daily_times = daily.get("time", [])
-        daily_sunrises = daily.get("sunrise", [])
-        daily_sunsets = daily.get("sunset", [])
-
-        target_date = local_dt.strftime("%Y-%m-%d")
-        day_idx = -1
-        if target_date in daily_times:
-            day_idx = daily_times.index(target_date)
-
-        if day_idx != -1 and day_idx < len(daily_sunrises) and day_idx < len(daily_sunsets):
+    # Solar phase: only from the retrieved sunrise/sunset for the incident date; otherwise Unknown
+    sunrise_sunset = "Unknown"
+    field_status["sunrise_sunset"] = "unavailable"
+    solar_source = "Unavailable (no sunrise/sunset data for the incident date)"
+    daily = (weather_data or {}).get("daily") or {}
+    daily_times = daily.get("time", [])
+    daily_sunrises = daily.get("sunrise", [])
+    daily_sunsets = daily.get("sunset", [])
+    target_date = local_dt.strftime("%Y-%m-%d")
+    if target_date in daily_times:
+        day_idx = daily_times.index(target_date)
+        if day_idx < len(daily_sunrises) and day_idx < len(daily_sunsets):
             sunrise_str = daily_sunrises[day_idx]
             sunset_str = daily_sunsets[day_idx]
             if sunrise_str and sunset_str:
                 current_iso = local_dt.strftime("%Y-%m-%dT%H:%M")
-                if sunrise_str <= current_iso <= sunset_str:
-                    sunrise_sunset = "Day"
-                else:
-                    sunrise_sunset = "Night"
-            else:
-                sunrise_sunset = "Day" if 6 <= hour < 18 else "Night"
-                solar_source = "Calculated (Clock Hour Fallback - Missing Daily Solar Time)"
-        else:
-            sunrise_sunset = "Day" if 6 <= hour < 18 else "Night"
-            solar_source = "Calculated (Clock Hour Fallback - Date Outside Solar Window)"
+                sunrise_sunset = "Day" if sunrise_str <= current_iso <= sunset_str else "Night"
+                field_status["sunrise_sunset"] = "retrieved"
+                solar_source = "Calculated (Daily Sunrise/Sunset at Location)"
 
+    if weather_data is None:
+        source_tag = "Unavailable (weather service unreachable)"
+    elif hour_matched:
         source_tag = "Open-Meteo Weather API"
     else:
-        temp = fill_values.get("Temperature(F)", 64.0)
-        humidity = fill_values.get("Humidity(%)", 68.0)
-        vis = fill_values.get("Visibility(mi)", 10.0)
-        wind = fill_values.get("Wind_Speed(mph)", 7.0)
-        precip = fill_values.get("Precipitation(in)", 0.0)
-        weather_cond = "Fair"
-        sunrise_sunset = "Day" if 6 <= hour < 18 else "Night"
-        source_tag = "Fallback (System Training Median)"
-        solar_source = "Calculated (Clock Hour Fallback - Offline)"
+        source_tag = "Unavailable (incident hour outside weather data window)"
 
     populated_payload = {
         "temperature": temp,
@@ -360,8 +408,20 @@ def auto_populate_incident_data(query: LocationQuery):
         }
     }
 
+    env_fields = ["temperature", "humidity", "visibility", "wind_speed", "precipitation",
+                  "weather_condition", "sunrise_sunset"]
+    retrieved_count = sum(1 for f in env_fields if field_status[f] == "retrieved")
+    if retrieved_count == len(env_fields):
+        overall = "success"
+    elif retrieved_count == 0:
+        overall = "unavailable"
+    else:
+        overall = "partial"
+
     return {
-        "status": "success",
+        "status": overall,
         "prefilled_incident_report": populated_payload,
+        "field_status": field_status,
+        "messages": messages,
         "provenance": provenance_metadata
     }
