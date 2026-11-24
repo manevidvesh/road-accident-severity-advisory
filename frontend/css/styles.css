@@ -1,39 +1,40 @@
 /* =====================================================================
-   Incident severity advisory — Happy Hues Palette 3 Design System
-   Color Palette: Palette 3 (happyhues.co/palettes/3)
-   Typography: Proxima Nova & Freight Sans Pro (with Plus Jakarta Sans & Inter)
+   Incident severity advisory — Happy Hues Palette 11 Design System
+   Color Palette: Palette 11 (happyhues.co/palettes/11)
+   Warm Linen, Midnight Ink, Sand & Caramel Bronze (No Blue)
+   Typography: Proxima Nova & Freight Sans Pro (Plus Jakarta Sans & Inter)
    Vanilla CSS, no frameworks.
    ===================================================================== */
 
 :root {
-  /* Happy Hues Palette 3 Colors */
-  --bg: #fffffe;
+  /* Happy Hues Palette 11 Colors */
+  --bg: #f9f4ef;
   --surface: #ffffff;
-  --surface-alt: #f0f7fe;
-  --surface-hover: #e3f2fd;
-  --ink: #094067;
-  --muted: #5f6c7b;
-  --line: #d8eefe;
-  --line-strong: #90b4ce;
+  --surface-alt: #f1ece4;
+  --surface-hover: #e6ded3;
+  --ink: #020826;
+  --muted: #716040;
+  --line: #eaddcf;
+  --line-strong: #c8b9a6;
 
   /* Primary Action & Brand */
-  --primary: #3da9fc;
-  --primary-hover: #2293e6;
+  --primary: #8c7851;
+  --primary-hover: #756340;
   --primary-ink: #fffffe;
 
   /* Status & Accents */
-  --ok: #2cb67d;
-  --warn: #d97706;
-  --bad: #ef4565;
-  --info: #3da9fc;
+  --ok: #2e6f40;
+  --warn: #c26d19;
+  --bad: #f25042;
+  --info: #8c7851;
 
   /* Incident Severity Levels (1 to 4) */
-  --lvl-1: #2cb67d;
-  --lvl-2: #3da9fc;
-  --lvl-3: #f582ae;
-  --lvl-4: #ef4565;
+  --lvl-1: #2e6f40;
+  --lvl-2: #8c7851;
+  --lvl-3: #c26d19;
+  --lvl-4: #f25042;
 
-  --focus: #3da9fc;
+  --focus: #8c7851;
   --radius: 6px;
 
   /* Typography: Happy Hues exact typekit font with seamless Google Fonts fallback */
@@ -41,6 +42,30 @@
   --font-body: "freight-sans-pro", "Inter", system-ui, -apple-system, sans-serif;
   --font: var(--font-body);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Optional Dark Theme: Happy Hues Palette 10 (happyhues.co/palettes/10) */
+[data-theme="10"] {
+  --bg: #004643;
+  --surface: #07524f;
+  --surface-alt: #003634;
+  --surface-hover: #0e5e5b;
+  --ink: #fffffe;
+  --muted: #abd1c6;
+  --line: #0f3433;
+  --line-strong: #1a5653;
+  --primary: #f9bc60;
+  --primary-hover: #e6a94d;
+  --primary-ink: #001e1d;
+  --ok: #2cb67d;
+  --warn: #f9bc60;
+  --bad: #e16162;
+  --info: #f9bc60;
+  --lvl-1: #2cb67d;
+  --lvl-2: #abd1c6;
+  --lvl-3: #f9bc60;
+  --lvl-4: #e16162;
+  --focus: #f9bc60;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -164,7 +189,7 @@ input[aria-invalid="true"] { border-color: var(--bad); }
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
-  font-weight: 500;
+  font-weight: 600;
 }
 .small-link { font-size: 0.875rem; margin-left: 12px; }
 
@@ -174,7 +199,7 @@ input[aria-invalid="true"] { border-color: var(--bad); }
 .actions.row .btn { flex: 1 1 160px; width: auto; }
 
 /* ---------- Location results / chosen ---------- */
-.results { list-style: none; margin: 10px 0 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: 0 4px 12px rgba(9, 64, 103, 0.06); }
+.results { list-style: none; margin: 10px 0 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: 0 4px 12px rgba(2, 8, 38, 0.05); }
 .results li + li { border-top: 1px solid var(--line); }
 .results button {
   display: block; width: 100%; text-align: left;
@@ -311,7 +336,7 @@ input[aria-invalid="true"] { border-color: var(--bad); }
 
 /* =====================================================================
    LANDING PAGE SPECIFIC STYLES (NO IMAGES / NO BLOBS)
-   Centered editorial typography with Palette 3 styling.
+   Centered editorial typography with Palette 11 styling.
    ===================================================================== */
 
 .landing-hero {
@@ -371,7 +396,7 @@ input[aria-invalid="true"] { border-color: var(--bad); }
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: var(--surface-alt);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -430,7 +455,7 @@ input[aria-invalid="true"] { border-color: var(--bad); }
   background: var(--surface);
   border-radius: var(--radius);
   padding: 18px 20px;
-  box-shadow: 0 2px 6px rgba(9, 64, 103, 0.04);
+  box-shadow: 0 2px 6px rgba(2, 8, 38, 0.03);
 }
 
 .input-group-card h3 {
