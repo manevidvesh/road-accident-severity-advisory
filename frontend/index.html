@@ -18,85 +18,128 @@
     <span class="brand">Incident severity advisory</span>
     <nav>
       <ul class="nav-links">
-        <li><a href="#inputs">Inputs</a></li>
+        <li><a href="#workflow">How it works</a></li>
+        <li><a href="#tiers">Impact tiers</a></li>
       </ul>
     </nav>
   </div>
 </header>
 
 <main>
-  <!-- Hero Section: What this is about (Centered, No images) -->
+  <!-- Hero Section -->
   <section class="landing-hero">
     <div class="wrap-wide">
       <div class="landing-hero-tag">Operational Decision Support</div>
       <h1 class="landing-hero-title">Understand the conditions.<br>Assess the impact.</h1>
       <p class="landing-hero-sub">
-        An assisted road accident assessment system that combines environmental information, road conditions and machine learning to estimate traffic-impact severity.
+        An assisted road accident assessment system combining atmospheric telemetry, roadway geometry, and machine learning to estimate traffic-clearance severity.
       </p>
 
       <div class="landing-hero-actions">
         <a href="workspace.html" class="btn primary">Start assessment</a>
       </div>
+    </div>
+  </section>
 
-      <!-- 3-part context overview -->
-      <div class="hero-context-bar">
-        <div class="context-bar-item">
-          <span class="context-bar-num">01 / INCIDENT CONTEXT</span>
-          <span class="context-bar-title">Spatial & Temporal</span>
-          <span class="context-bar-desc">Coordinates, calendar month, and local solar hour.</span>
+  <!-- Section 1: How It Works (Pipeline) -->
+  <section id="workflow" class="landing-section">
+    <div class="wrap-wide">
+      <div class="landing-section-header">
+        <span class="landing-section-tag">Workflow Pipeline</span>
+        <h2 class="landing-section-title">How an assessment works</h2>
+        <p class="landing-section-desc">From incident coordinates to operational clearance guidance in three automated steps.</p>
+      </div>
+
+      <div class="pipeline-grid">
+        <div class="pipeline-card">
+          <div class="pipeline-card-top">
+            <span class="pipeline-num">STEP 01</span>
+            <span class="pipeline-badge">Input</span>
+          </div>
+          <h3>Incident Context</h3>
+          <p>Operator pins the incident location via address search or on-scene device GPS, and confirms the local timestamp.</p>
+          <span class="pipeline-pill">Coordinates · Date · Solar Hour</span>
         </div>
-        <div class="context-bar-item">
-          <span class="context-bar-num">02 / TELEMETRY</span>
-          <span class="context-bar-title">Atmospheric Ingestion</span>
-          <span class="context-bar-desc">Automated weather retrieval for the incident timestamp.</span>
+
+        <div class="pipeline-card">
+          <div class="pipeline-card-top">
+            <span class="pipeline-num">STEP 02</span>
+            <span class="pipeline-badge">Automated</span>
+          </div>
+          <h3>Telemetry Ingestion</h3>
+          <p>The system queries historical or live atmospheric records for that exact coordinate and hour without manual lookup.</p>
+          <span class="pipeline-pill">Precipitation · Wind · Visibility</span>
         </div>
-        <div class="context-bar-item">
-          <span class="context-bar-num">03 / GEOMETRY</span>
-          <span class="context-bar-title">Road Infrastructure</span>
-          <span class="context-bar-desc">Operator confirmation of crossings, junctions, and signals.</span>
+
+        <div class="pipeline-card">
+          <div class="pipeline-card-top">
+            <span class="pipeline-num">STEP 03</span>
+            <span class="pipeline-badge">ML Model</span>
+          </div>
+          <h3>Severity Inference</h3>
+          <p>A class-balanced Random Forest classifier evaluates compound risks to estimate traffic disruption severity and standard clearance protocols.</p>
+          <span class="pipeline-pill">Tiers 1–4 · Clearance SOP · Probabilities</span>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Section: Inputs -->
-  <section id="inputs" class="landing-section">
+  <!-- Section 2: Output Matrix (4 Impact Tiers) -->
+  <section id="tiers" class="landing-section">
     <div class="wrap-wide">
       <div class="landing-section-header">
-        <span class="landing-section-tag">System Inputs</span>
-        <h2 class="landing-section-title">What goes into an assessment</h2>
+        <span class="landing-section-tag">Output Matrix</span>
+        <h2 class="landing-section-title">Predicted traffic impact tiers</h2>
+        <p class="landing-section-desc">Standard clearance windows and response priorities mapped to model predictions.</p>
       </div>
 
-      <div class="grid-3">
-        <div class="input-group-card">
-          <h3>Incident Context</h3>
-          <ul class="input-group-list">
-            <li><span>Location</span> <span class="val">Address / GPS</span></li>
-            <li><span>Month</span> <span class="val">1 – 12</span></li>
-            <li><span>Solar Hour</span> <span class="val">00:00 – 23:00</span></li>
-          </ul>
+      <div class="tiers-grid">
+        <div class="tier-card">
+          <div class="tier-card-header">
+            <span class="tier-badge" data-level="1">Level 1</span>
+            <span class="tier-window">&lt; 15 min clearance</span>
+          </div>
+          <h3>Minimal Disruption</h3>
+          <p>Shoulder or curb incident with negligible lane obstruction. Traffic flows smoothly; routine clearance protocol.</p>
         </div>
 
-        <div class="input-group-card">
-          <h3>Environmental Conditions</h3>
-          <ul class="input-group-list">
-            <li><span>Temperature</span> <span class="val">°F</span></li>
-            <li><span>Humidity</span> <span class="val">%</span></li>
-            <li><span>Visibility</span> <span class="val">Statute miles</span></li>
-            <li><span>Wind speed</span> <span class="val">mph</span></li>
-            <li><span>Precipitation</span> <span class="val">Inches</span></li>
-            <li><span>Weather / Solar</span> <span class="val">WMO / Day-Night</span></li>
-          </ul>
+        <div class="tier-card">
+          <div class="tier-card-header">
+            <span class="tier-badge" data-level="2">Level 2</span>
+            <span class="tier-window">15 – 45 min clearance</span>
+          </div>
+          <h3>Minor Delays</h3>
+          <p>Single travel lane affected. Moderate traffic queue forms; localized advisory warnings recommended.</p>
         </div>
 
-        <div class="input-group-card">
-          <h3>Road Infrastructure</h3>
-          <ul class="input-group-list">
-            <li><span>Pedestrian crossing</span> <span class="val">Yes / No</span></li>
-            <li><span>Highway junction</span> <span class="val">Yes / No</span></li>
-            <li><span>Traffic signal</span> <span class="val">Yes / No</span></li>
-          </ul>
+        <div class="tier-card">
+          <div class="tier-card-header">
+            <span class="tier-badge" data-level="3">Level 3</span>
+            <span class="tier-window">45 – 90 min clearance</span>
+          </div>
+          <h3>Significant Congestion</h3>
+          <p>Multiple lanes blocked on major corridors or highways. Substantial queueing; alternate route diversions triggered.</p>
         </div>
+
+        <div class="tier-card">
+          <div class="tier-card-header">
+            <span class="tier-badge" data-level="4">Level 4</span>
+            <span class="tier-window">90+ min clearance</span>
+          </div>
+          <h3>Critical Corridor Shutdown</h3>
+          <p>Complete corridor gridlock, frequently compounded by adverse weather (rain, fog) or high-speed junction geometries. Emergency clearance priority.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Call to Action -->
+  <section class="landing-section" style="border-bottom: none;">
+    <div class="wrap-wide">
+      <div class="landing-cta-box">
+        <h2>Ready to run an incident assessment?</h2>
+        <p>Pin a location, confirm road features, and compute impact severity in under a minute.</p>
+        <a href="workspace.html" class="btn primary">Start assessment</a>
       </div>
     </div>
   </section>
@@ -106,7 +149,8 @@
   <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 10px;">
     <span>Incident Severity Advisory</span>
     <div style="display: flex; gap: 16px;">
-      <a href="#inputs">Inputs</a>
+      <a href="#workflow">How it works</a>
+      <a href="#tiers">Impact tiers</a>
       <a href="https://github.com/manevidvesh/road-accident-severity-advisory" target="_blank" rel="noopener noreferrer">GitHub</a>
     </div>
   </div>
