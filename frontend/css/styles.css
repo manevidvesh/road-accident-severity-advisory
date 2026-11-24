@@ -478,6 +478,7 @@ input[aria-invalid="true"] { border-color: var(--bad); }
   padding: 6px 12px;
   border-radius: var(--radius-pill);
   margin-top: 4px;
+  white-space: nowrap;
 }
 
 /* Tiers Grid (The 4 Predicted Impact Levels) */
@@ -548,39 +549,10 @@ input[aria-invalid="true"] { border-color: var(--bad); }
   margin: 0;
 }
 
-/* Landing CTA Banner */
-.landing-cta-box {
-  background: var(--surface-alt);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  padding: 40px 32px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-}
-
-.landing-cta-box h2 {
-  font-size: 1.5rem;
-  text-transform: none;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  margin: 0;
-}
-
-.landing-cta-box p {
-  font-size: 1rem;
-  color: var(--muted);
-  max-width: 520px;
-  margin: 0;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .pipeline-grid { grid-template-columns: 1fr; }
   .tiers-grid { grid-template-columns: 1fr; }
-  .landing-cta-box { padding: 32px 20px; }
 }
 
 @media (max-width: 520px) {
