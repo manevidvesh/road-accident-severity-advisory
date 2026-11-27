@@ -1,8 +1,5 @@
-import os
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI, Request, HTTPException, Query, status
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import pandas as pd
@@ -60,16 +57,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static asset folders for frontend
-if os.path.exists("frontend"):
-    if os.path.exists("frontend/css"):
-        app.mount("/css", StaticFiles(directory="frontend/css"), name="css")
-    if os.path.exists("frontend/js"):
-        app.mount("/js", StaticFiles(directory="frontend/js"), name="js")
-    if os.path.exists("frontend/assets"):
-        app.mount("/assets", StaticFiles(directory="frontend/assets"), name="assets")
-    app.mount("/frontend", StaticFiles(directory="frontend", html=True), name="frontend")
-
 model = joblib.load("final_severity_model.pkl")
 columns = joblib.load("model_columns.pkl")
 fill_values = joblib.load("fill_values.pkl")
@@ -104,36 +91,13 @@ class IncidentReport(BaseModel):
 
 
 @app.get("/")
-def root(request: Request):
-    # If requested by a web browser, serve the product landing page
-    if "text/html" in request.headers.get("accept", "") and os.path.exists("frontend/index.html"):
-        return FileResponse("frontend/index.html")
+def root():
     return {
         "system": "Traffic Incident Advisory System",
         "stakeholder": "Department of Transportation / Traffic Operations Center",
-        "documentation": "/docs"
+        "documentation": "/docs",
+        "health": "/health",
     }
-
-
-@app.get("/workspace")
-def workspace_route():
-    if os.path.exists("frontend/workspace.html"):
-        return FileResponse("frontend/workspace.html")
-    return {"error": "Workspace page not found"}
-
-
-@app.get("/index.html")
-def index_html_route():
-    if os.path.exists("frontend/index.html"):
-        return FileResponse("frontend/index.html")
-    return {"error": "Landing page not found"}
-
-
-@app.get("/workspace.html")
-def workspace_html_route():
-    if os.path.exists("frontend/workspace.html"):
-        return FileResponse("frontend/workspace.html")
-    return {"error": "Workspace page not found"}
 
 
 @app.get("/health")

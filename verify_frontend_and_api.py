@@ -24,31 +24,26 @@ def test_all():
         assert health_data["database_connected"] is True
         print("PASS: /health endpoint is operational with database connected")
 
-        # 2. Root content negotiation (JSON client)
-        res = client.get("/", headers={"Accept": "application/json"})
-        assert res.status_code == 200, f"Root JSON failed: {res.status_code}"
-        assert "system" in res.json(), "Root JSON missing 'system' key"
-        print("PASS: GET / with Accept: application/json returns API metadata")
+        # 2. Root returns API JSON even for browser Accept headers (frontend hosted on Vercel)
+        res = client.get("/", headers={"Accept": "text/html,application/json"})
+        assert res.status_code == 200, f"Root failed: {res.status_code}"
+        root_json = res.json()
+        assert "system" in root_json and root_json.get("documentation") == "/docs"
+        assert client.get("/workspace").status_code == 404
+        print("PASS: Backend root serves API JSON only (/workspace not served by backend)")
 
-        # 3. Root content negotiation (Web browser)
-        res = client.get("/", headers={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
-        assert res.status_code == 200, f"Root HTML failed: {res.status_code}"
-        assert "Incident Severity Advisory" in res.text
-        assert "Minor Delay" in res.text and "10 – 25 min clearance" in res.text
-        assert "<img" not in res.text
-        print("PASS: GET / serves aligned landing page (index.html)")
-
-        # 4. Workspace route & static assets
-        res = client.get("/workspace")
-        assert res.status_code == 200
-        assert "Assessment Workspace" in res.text
-        assert "view-queue" in res.text
-        assert "auth-modal" in res.text
-        assert "js/ops.js" in res.text
-        for asset_path in ["/css/styles.css", "/js/config.js", "/js/model-options.js", "/js/ops.js", "/js/app.js"]:
-            ares = client.get(asset_path)
-            assert ares.status_code == 200 and len(ares.content) > 50, f"Asset {asset_path} failed"
-        print("PASS: GET /workspace and all static assets resolve 200 OK")
+        # 3. Frontend files exist on disk for Vercel deployment
+        for fpath in [
+            "frontend/index.html",
+            "frontend/workspace.html",
+            "frontend/css/styles.css",
+            "frontend/js/config.js",
+            "frontend/js/model-options.js",
+            "frontend/js/ops.js",
+            "frontend/js/app.js",
+        ]:
+            assert os.path.exists(fpath), f"Missing frontend file: {fpath}"
+        print("PASS: All frontend static files present for Vercel")
 
         # 5. /auto-populate and stateless /predict
         auto_res = client.post("/auto-populate", json={
