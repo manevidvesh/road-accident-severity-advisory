@@ -76,9 +76,9 @@
             <span class="pipeline-num">STEP 03</span>
             <span class="pipeline-badge">ML Model</span>
           </div>
-          <h3>Severity Inference</h3>
-          <p>A class-balanced Random Forest classifier evaluates compound risks to estimate traffic disruption severity and standard clearance protocols.</p>
-          <span class="pipeline-pill">Tiers 1–4 · Clearance SOP</span>
+          <h3>Severity Inference & Dispatch Queue</h3>
+          <p>A class-balanced Random Forest classifier evaluates compound risks, persists the incident to the TOC Command Queue, and tracks role-based clearance workflows.</p>
+          <span class="pipeline-pill">Tiers 1–4 · RBAC · Audit Log</span>
         </div>
       </div>
     </div>
@@ -97,19 +97,19 @@
         <div class="tier-card">
           <div class="tier-card-header">
             <span class="tier-badge" data-level="1">Level 1</span>
-            <span class="tier-window">&lt; 15 min clearance</span>
+            <span class="tier-window">10 – 25 min clearance</span>
           </div>
-          <h3>Minimal Disruption</h3>
-          <p>Shoulder or curb incident with negligible lane obstruction. Traffic flows smoothly; routine clearance protocol.</p>
+          <h3>Minor Delay</h3>
+          <p>Routine shoulder clearance with negligible lane obstruction. No mainline lane closures required; LOW dispatch priority.</p>
         </div>
 
         <div class="tier-card">
           <div class="tier-card-header">
             <span class="tier-badge" data-level="2">Level 2</span>
-            <span class="tier-window">15 – 45 min clearance</span>
+            <span class="tier-window">25 – 45 min clearance</span>
           </div>
-          <h3>Minor Delays</h3>
-          <p>Single travel lane affected. Moderate traffic queue forms; localized advisory warnings recommended.</p>
+          <h3>Moderate Traffic Disruption</h3>
+          <p>Single travel lane affected. Dispatch standard traffic patrol unit and monitor corridor camera feeds; MEDIUM dispatch priority.</p>
         </div>
 
         <div class="tier-card">
@@ -117,8 +117,8 @@
             <span class="tier-badge" data-level="3">Level 3</span>
             <span class="tier-window">45 – 90 min clearance</span>
           </div>
-          <h3>Significant Congestion</h3>
-          <p>Multiple lanes blocked on major corridors or highways. Substantial queueing; alternate route diversions triggered.</p>
+          <h3>Significant Traffic Backlog</h3>
+          <p>Multiple lanes affected on major corridors. Activate Variable Message Signs (VMS) and reroute upcoming transit; HIGH dispatch priority.</p>
         </div>
 
         <div class="tier-card">
@@ -127,7 +127,7 @@
             <span class="tier-window">90+ min clearance</span>
           </div>
           <h3>Critical Corridor Shutdown</h3>
-          <p>Complete corridor gridlock, frequently compounded by adverse weather (rain, fog) or high-speed junction geometries. Emergency clearance priority.</p>
+          <p>Severe corridor gridlock, often compounded by adverse weather or junction geometries. Dispatch heavy-duty recovery cranes &amp; trigger regional detours; CRITICAL priority.</p>
         </div>
       </div>
     </div>

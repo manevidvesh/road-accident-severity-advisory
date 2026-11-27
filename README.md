@@ -26,7 +26,7 @@ Unlike basic models that only output raw class numbers, this system generates an
 
 ### 1. Install Dependencies
 ```bash
-pip install fastapi uvicorn pandas scikit-learn joblib
+pip install -r requirements.txt
 ```
 
 ### 2. Start the FastAPI Server
@@ -34,9 +34,16 @@ pip install fastapi uvicorn pandas scikit-learn joblib
 python -m uvicorn main:app --reload
 ```
 * **Landing Page:** `http://127.0.0.1:8000/`
-* **Assessment Workspace:** `http://127.0.0.1:8000/workspace`
+* **Assessment & Command Queue Workspace:** `http://127.0.0.1:8000/workspace`
 * **Swagger Documentation:** `http://127.0.0.1:8000/docs`
 * **Health Check:** `http://127.0.0.1:8000/health`
+
+---
+
+## 🗄️ Database & Stakeholder Roles
+* **Normalized SQLite/SQLAlchemy Schema (`models.py`):** `roles`, `users`, `incidents`, `severity_assessments`, and `incident_audit_logs` with foreign-key constraints and full CRUD endpoints (`/api/incidents`).
+* **Authentication & RBAC (`auth.py`):** Salted `scrypt` password hashing, HS256 bearer tokens, and three stakeholder roles (`responder`, `dispatcher`, `supervisor`).
+* **Demo Accounts (seeded on startup, password `TocDemo@2026`):** `responder@toc.gov`, `dispatcher@toc.gov`, `supervisor@toc.gov`.
 
 ---
 

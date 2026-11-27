@@ -838,13 +838,31 @@
     setMessage(msg, "loading", [el("p", {}, [el("span", { className: "spinner", attrs: { "aria-hidden": "true" } }),
                                               document.createTextNode("Running the model…")])]);
 
-    api("/predict", { method: "POST", body: buildPayload() }).then(function (data) {
-      state.result = validatePrediction(data);
+    var provenance = {};
+    if (state.env) {
+      Object.keys(state.env).forEach(function (k) { provenance[k] = state.env[k].status; });
+    }
+    var context = {
+      location_label: state.loc ? state.loc.label : "Unknown location",
+      latitude: state.loc ? round(state.loc.lat, 4) : 0,
+      longitude: state.loc ? round(state.loc.lon, 4) : 0,
+      occurred_at: state.date + "T" + state.time + ":00",
+      telemetry_provenance: provenance
+    };
+    var apiCall = window.WorkspaceOps
+      ? window.WorkspaceOps.submitAssessment(buildPayload(), context)
+      : api("/predict", { method: "POST", body: buildPayload() }).then(function (data) {
+          return { persisted: false, prediction: data, incident: null };
+        });
+
+    apiCall.then(function (outcome) {
+      state.result = validatePrediction(outcome.prediction);
+      state.savedIncident = outcome.incident || null;
       renderResult();
       clearMessage(msg);
       go("result");
     }).catch(function (err) {
-      setMessage(msg, "error", [describeError(err, "assessment request")]);
+      setMessage(msg, "error", [err && err.message ? err.message : describeError(err, "assessment request")]);
     }).then(function () {
       state.running = false;
       btn.disabled = false;
@@ -907,6 +925,30 @@
       note.textContent = n + " of 7 conditions were not available as real values and were replaced by typical values or Unknown, so this estimate is less specific to the incident.";
       show(note, true);
     } else { show(note, false); }
+
+    var savedBanner = $("res-saved-banner");
+    var viewSavedBtn = $("view-saved-btn");
+    if (savedBanner && viewSavedBtn) {
+      savedBanner.replaceChildren();
+      if (state.savedIncident) {
+        savedBanner.dataset.kind = "ok";
+        savedBanner.appendChild(el("p", {
+          text: "Saved to Command Queue as " + state.savedIncident.reference_code + " (Status: " + state.savedIncident.status + ")."
+        }));
+        show(savedBanner, true);
+        show(viewSavedBtn, true);
+        viewSavedBtn.onclick = function () {
+          if (window.WorkspaceOps) window.WorkspaceOps.openIncidentDetail(state.savedIncident.id);
+        };
+      } else {
+        savedBanner.dataset.kind = "partial";
+        savedBanner.appendChild(el("p", {
+          text: "Guest preview only — not saved to the Command Queue. Sign in to persist and dispatch incidents."
+        }));
+        show(savedBanner, true);
+        show(viewSavedBtn, false);
+      }
+    }
   }
 
   /* ------------------------------------------------------------------ */

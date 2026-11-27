@@ -14,20 +14,39 @@
 <body>
 
 <header class="top">
-  <div class="wrap top-inner">
-    <div style="display: flex; align-items: center; gap: 12px;">
-      <a href="index.html" class="link-back" style="color: var(--muted); text-decoration: none; font-size: 0.875rem;">← Overview</a>
+  <div class="wrap-nav top-inner">
+    <div class="top-left">
+      <a href="index.html" class="link-back">← Overview</a>
+      <span class="brand-sep" aria-hidden="true">·</span>
       <span class="brand">Incident severity advisory</span>
     </div>
-    <ol class="steps" aria-label="Progress">
-      <li id="step-incident" aria-current="step">Incident</li>
-      <li id="step-review">Review</li>
-      <li id="step-result">Result</li>
-    </ol>
+    <nav aria-label="Workspace views" class="ws-tabs">
+      <button type="button" class="ws-tab" id="tab-assess" aria-pressed="true">Assessment</button>
+      <button type="button" class="ws-tab" id="tab-queue" aria-pressed="false">Command Queue</button>
+      <button type="button" class="ws-tab" id="tab-analytics" aria-pressed="false" hidden>Analytics</button>
+    </nav>
+    <div class="auth-bar" id="auth-bar">
+      <span id="auth-user-pill" class="user-pill" hidden></span>
+      <button type="button" id="open-auth-btn" class="btn small primary">Sign in</button>
+      <button type="button" id="signout-btn" class="btn small" hidden>Sign out</button>
+    </div>
+  </div>
+  <div class="top-sub" id="assess-steps-bar">
+    <div class="wrap">
+      <ol class="steps" aria-label="Progress">
+        <li id="step-incident" aria-current="step">Incident</li>
+        <li id="step-review">Review</li>
+        <li id="step-result">Result</li>
+      </ol>
+    </div>
   </div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="main-wrap">
+
+  <div id="auth-status-banner" class="banner" data-kind="partial" style="margin-bottom: 16px;" hidden></div>
+
+  <div id="view-assess">
 
   <!-- 1 · Identify the incident -->
   <section id="panel-incident" aria-labelledby="h-incident">
@@ -177,6 +196,8 @@
 
     <p id="res-inputs-note" class="note" hidden></p>
 
+    <div id="res-saved-banner" class="banner" data-kind="ok" hidden></div>
+
     <p class="limits">
       Advisory only, not a dispatch decision. The model estimates traffic delay, not injuries or fatalities.
       It was trained on US accident records (2016–2023) and may be less reliable elsewhere.
@@ -184,10 +205,135 @@
 
     <div class="actions row">
       <button type="button" id="new-btn" class="btn primary">New incident</button>
+      <button type="button" id="view-saved-btn" class="btn" hidden>View in Command Queue</button>
       <button type="button" id="back-review-btn" class="btn">Back to review</button>
     </div>
   </section>
+  </div>
+
+  <!-- Command Queue (Persisted CRUD & Stakeholder Workflow) -->
+  <section id="view-queue" aria-labelledby="h-queue" hidden>
+    <div class="queue-header">
+      <div>
+        <h1 id="h-queue" tabindex="-1" style="margin: 24px 0 6px;">Command Queue</h1>
+        <p class="hint" style="margin: 0;">Persisted incident assessments, dispatch assignments, and audit history.</p>
+      </div>
+      <button type="button" id="queue-refresh-btn" class="btn small">Refresh</button>
+    </div>
+
+    <div id="queue-auth-gate" class="banner" data-kind="partial" hidden></div>
+
+    <div id="queue-body" hidden>
+      <div class="kpi-grid" id="queue-kpis"></div>
+
+      <div class="queue-filters">
+        <input type="search" id="filter-q" placeholder="Search INC code or location…" aria-label="Search incidents">
+        <select id="filter-status" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option value="open">Open</option>
+          <option value="dispatched">Dispatched</option>
+          <option value="in_clearance">In clearance</option>
+          <option value="cleared">Cleared</option>
+        </select>
+        <select id="filter-severity" aria-label="Filter by severity">
+          <option value="">All severities</option>
+          <option value="4">Level 4 — Critical</option>
+          <option value="3">Level 3 — High</option>
+          <option value="2">Level 2 — Moderate</option>
+          <option value="1">Level 1 — Minor</option>
+        </select>
+        <label class="mine-toggle">
+          <input type="checkbox" id="filter-mine"> My reports
+        </label>
+      </div>
+
+      <div id="queue-msg" class="msg" role="status" hidden></div>
+      <div id="queue-list" class="queue-list"></div>
+    </div>
+
+    <!-- Incident Detail / Update / Audit View -->
+    <div id="queue-detail" class="detail-card" hidden>
+      <div class="detail-top">
+        <button type="button" id="detail-back-btn" class="btn small">← Back to queue</button>
+        <span id="detail-ref" class="ref-code"></span>
+      </div>
+      <div id="detail-content"></div>
+    </div>
+  </section>
+
+  <!-- Operations Analytics & Supervisor User Management -->
+  <section id="view-analytics" aria-labelledby="h-analytics" hidden>
+    <h1 id="h-analytics" tabindex="-1" style="margin: 24px 0 6px;">Operations & Governance</h1>
+    <p class="hint" style="margin-bottom: 24px;">Live incident breakdown and stakeholder role management.</p>
+
+    <div id="analytics-msg" class="msg" role="status" hidden></div>
+    <div id="analytics-content"></div>
+  </section>
 </main>
+
+<!-- Auth Modal (Sign In & Register) -->
+<div id="auth-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="auth-modal-title" style="margin: 0; font-size: 1.125rem; text-transform: none; letter-spacing: -0.01em; color: var(--ink);">TOC Stakeholder Access</h2>
+      <button type="button" id="close-auth-btn" class="btn small" aria-label="Close sign in dialog">Close</button>
+    </div>
+
+    <div class="auth-tabs" role="tablist">
+      <button type="button" class="auth-tab" id="auth-tab-login" role="tab" aria-selected="true">Sign in</button>
+      <button type="button" class="auth-tab" id="auth-tab-register" role="tab" aria-selected="false">Register</button>
+    </div>
+
+    <form id="login-form" novalidate>
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input id="login-email" type="email" autocomplete="email" required placeholder="dispatcher@toc.gov">
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" autocomplete="current-password" required placeholder="••••••••">
+      </div>
+      <div class="demo-box">
+        <div class="demo-title">Quick-fill demo stakeholder accounts (password: <code>TocDemo@2026</code>)</div>
+        <div class="demo-btns">
+          <button type="button" class="btn small demo-fill" data-email="responder@toc.gov">Responder</button>
+          <button type="button" class="btn small demo-fill" data-email="dispatcher@toc.gov">Dispatcher</button>
+          <button type="button" class="btn small demo-fill" data-email="supervisor@toc.gov">Supervisor</button>
+        </div>
+      </div>
+      <div id="login-msg" class="msg" role="alert" hidden></div>
+      <div class="actions" style="margin-top: 20px;">
+        <button type="submit" id="login-submit" class="btn primary">Sign in</button>
+      </div>
+    </form>
+
+    <form id="register-form" novalidate hidden>
+      <div class="field">
+        <label for="reg-name">Full name</label>
+        <input id="reg-name" type="text" autocomplete="name" required placeholder="e.g. Priya Sharma">
+      </div>
+      <div class="field">
+        <label for="reg-email">Email</label>
+        <input id="reg-email" type="email" autocomplete="email" required placeholder="name@agency.gov">
+      </div>
+      <div class="field">
+        <label for="reg-password">Password (min 6 characters)</label>
+        <input id="reg-password" type="password" autocomplete="new-password" required minlength="6">
+      </div>
+      <div class="field">
+        <label for="reg-role">Stakeholder role</label>
+        <select id="reg-role">
+          <option value="responder">Field Responder (log incidents & notes)</option>
+          <option value="dispatcher">TOC Dispatcher (assess, assign & update status)</option>
+        </select>
+      </div>
+      <div id="reg-msg" class="msg" role="alert" hidden></div>
+      <div class="actions" style="margin-top: 20px;">
+        <button type="submit" id="reg-submit" class="btn primary">Create account</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <footer class="wrap foot">
   <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
@@ -199,6 +345,7 @@
 
 <script src="js/config.js"></script>
 <script src="js/model-options.js"></script>
+<script src="js/ops.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,6 +1,8 @@
-# Ignore large datasets
+# Ignore large datasets and local runtime databases
 US_Accidents_March23.csv
 *.csv
+*.db
+*.sqlite3
 
 # Python cache
 __pycache__/
